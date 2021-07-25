@@ -8,6 +8,7 @@ import json
 import time
 import random
 from datetime import datetime
+import paho.mqtt.client as mqtt
 
 app = Flask(__name__)
 
@@ -21,6 +22,10 @@ app.config['MYSQL_DATABASE_USER'] = 'root'
 app.config['MYSQL_DATABASE_PASSWORD'] = ''
 app.config['MYSQL_DATABASE_DB'] = 'iot'
 app.config['MYSQL_DATABASE_HOST'] = 'localhost'
+
+# MQTT config
+broker_address="broker.hivemq.com"
+client = mqtt.Client("P1")
 
 @app.route('/', methods = ['GET','POST'])
 def index():
@@ -103,10 +108,32 @@ def tempChart():
 @app.route('/temp-data/', methods = ['GET', 'POST'])
 def tempData(userid = 1):
     cursor = conn.cursor()
+
+    
     def generate_random_data():
         while True:
-            cursor.execute('update data set temp = %s where userid = %s',(random.random()*100, userid))
+            def on_connect(client, userdata, flags, rc):
+                if rc==0:
+                    pass
 
+                else:
+                    print("Client is not connnected")
+
+            def on_message(client, userdata, message):
+                global bodytemp_subcribe
+                bodytemp_subcribe = str(message.payload.decode("utf-8"))
+
+            broker_addr = "broker.hivemq.com"
+            client = mqtt.Client("a")
+            client.on_message = on_message
+            client.connect(broker_addr, 1883)
+            client.on_connect = on_connect
+            client.subscribe("/iot/user1/data/temp")
+            client.loop_start()
+            time.sleep(10)
+
+            client.loop_stop()
+            cursor.execute('update data set temp = %s where userid = %s',(bodytemp_subcribe, userid))
             query = 'SELECT temp FROM data WHERE userid = %s'
             cursor.execute(query, userid)
             result = cursor.fetchone()
@@ -223,4 +250,4 @@ def timeData(userid = 1):
     return Response(generate_random_data(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
-    app.run(port=5002)
+    app.run(port=5000)
