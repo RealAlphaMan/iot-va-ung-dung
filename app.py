@@ -14,15 +14,10 @@ app = Flask(__name__)
 
 list_uname = []
 checkLogin = False
+userid = None
 
 conn = pymysql.connect(host='localhost', port=3306, user='root', passwd='', db='iot')
  
-# MySQL configurations
-app.config['MYSQL_DATABASE_USER'] = 'root'
-app.config['MYSQL_DATABASE_PASSWORD'] = ''
-app.config['MYSQL_DATABASE_DB'] = 'iot'
-app.config['MYSQL_DATABASE_HOST'] = 'localhost'
-
 # MQTT config
 broker_address="broker.hivemq.com"
 client = mqtt.Client("P1")
@@ -35,6 +30,7 @@ def index():
 def signIn():
     error = None
     global checkLogin
+    global userid
     checkLogin = False
     if request.method == 'POST':
         try:
@@ -51,6 +47,7 @@ def signIn():
                 query = "SELECT userid FROM user WHERE username = %s"
                 cursor.execute(query, _usr)
                 result = cursor.fetchone()
+                userid = result[0]
                 return redirect(url_for('show', userid = result[0]))
             else:
                 error = "Invalid user or password"  
@@ -77,13 +74,16 @@ def signUp():
                 if _pwd != _con_pwd:
                     error = 'Password and Re-enter password are not equal'
                 else: 
-                    query = 'INSERT INTO user (name, username, password) VALUES (%s, %s, %s)'
+                    query = 'INSERT INTO user (userid, name, username, password) VALUES (3, %s, %s, %s)'
                     cursor.execute(query, (_name, _usr, _pwd))
+                    query = 'INSERT INTO data (id, userid, temp, humi, spo2, nhiptim, bodytemp, time) VALUES (3, 3, 0, 0, 0, 0, 0, 0)'
+                    cursor.execute(query)
                     checkLogin = True
                     list_uname.append(_usr)
                     query = "SELECT userid FROM user WHERE username = %s"
                     cursor.execute(query, _usr)
                     result = cursor.fetchone()
+                    userid = result[0]
                     return redirect(url_for('show', userid = result[0]))
         except Exception as e:
             return jsonify({'error': str(e)})
@@ -93,24 +93,13 @@ def signUp():
 @app.route('/<userid>', methods = ['GET', 'POST'])
 def show(userid):
     if checkLogin == True:
-        cursor = conn.cursor()
-        query = 'SELECT temp, humi, spo2, nhiptim, bodytemp, time FROM data WHERE userid = %s'
-        cursor.execute(query, userid)
-        result = cursor.fetchone()
-        return render_template('homepage.html', temp = result[0 ], humi = result[1], spo2 = result[2], nhiptim = result[3], bodytemp = result[4], time = result[5])
+        return render_template('homepage.html')
     else:
         return redirect(url_for('signIn'))
 
-@app.route('/temp-chart', methods = ['GET', 'POST'])
-def tempChart():
-    return render_template('temp.html')
-
-@app.route('/temp-data/', methods = ['GET', 'POST'])
-def tempData(userid = 1):
-    cursor = conn.cursor()
-
-    
-    def generate_random_data():
+@app.route('/realtime-data', methods = ['GET', 'POST'])
+def realtimeData():
+    def generate_data():
         while True:
             def on_connect(client, userdata, flags, rc):
                 if rc==0:
@@ -120,8 +109,8 @@ def tempData(userid = 1):
                     print("Client is not connnected")
 
             def on_message(client, userdata, message):
-                global bodytemp_subcribe
-                bodytemp_subcribe = str(message.payload.decode("utf-8"))
+                global temp_subcribe
+                temp_subcribe = str(message.payload.decode("utf-8"))
 
             broker_addr = "broker.hivemq.com"
             client = mqtt.Client("a")
@@ -133,7 +122,51 @@ def tempData(userid = 1):
             time.sleep(10)
 
             client.loop_stop()
-            cursor.execute('update data set temp = %s where userid = %s',(bodytemp_subcribe, userid))
+            test = random.random()*100
+            test = str(test) + "\n"
+            time.sleep(1)
+            json_data = json.dumps({'temp': temp_subcribe, 'humi': test, 'spo2': test, 'nhiptim': test,'bodytemp': test})
+            yield f"data:{json_data}\n\n"
+        
+    return Response(generate_data(), mimetype='text/event-stream')
+
+@app.route('/test.html', methods = ['GET', 'POST'])
+def realtimeDataShow():
+    return render_template('test.html')
+
+@app.route('/temp-chart', methods = ['GET', 'POST'])
+def tempChart():
+    return render_template('temp.html')
+
+@app.route('/temp-data/', methods = ['GET', 'POST'])
+def tempData(userid = 1):
+    cursor = conn.cursor()
+
+    
+    def get_data():
+        while True:
+            def on_connect(client, userdata, flags, rc):
+                if rc==0:
+                    pass
+
+                else:
+                    print("Client is not connnected")
+
+            def on_message(client, userdata, message):
+                global temp_subcribe
+                temp_subcribe = str(message.payload.decode("utf-8"))
+
+            broker_addr = "broker.hivemq.com"
+            client = mqtt.Client("a")
+            client.on_message = on_message
+            client.connect(broker_addr, 1883)
+            client.on_connect = on_connect
+            client.subscribe("/iot/user1/data/temp")
+            client.loop_start()
+            time.sleep(10)
+
+            client.loop_stop()
+            cursor.execute('update data set temp = %s where userid = %s',(temp_subcribe, userid))
             query = 'SELECT temp FROM data WHERE userid = %s'
             cursor.execute(query, userid)
             result = cursor.fetchone()
@@ -142,7 +175,7 @@ def tempData(userid = 1):
             yield f"data:{json_data}\n\n"
             time.sleep(1)
 
-    return Response(generate_random_data(), mimetype='text/event-stream')
+    return Response(get_data(), mimetype='text/event-stream')
 
 @app.route('/humi-chart', methods = ['GET', 'POST'])
 def humiChart():
