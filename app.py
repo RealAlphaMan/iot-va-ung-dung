@@ -76,7 +76,7 @@ def signUp():
                 else: 
                     query = 'INSERT INTO user (userid, name, username, password) VALUES (3, %s, %s, %s)'
                     cursor.execute(query, (_name, _usr, _pwd))
-                    query = 'INSERT INTO data (id, userid, temp, humi, spo2, nhiptim, bodytemp, time) VALUES (3, 3, 0, 0, 0, 0, 0, 0)'
+                    query = 'INSERT INTO data (id, userid, temp, humi, spo2, nhiptim, bodytemp, time) VALUES (4, 3, 0, 0, 0, 0, 0, 0)'
                     cursor.execute(query)
                     checkLogin = True
                     list_uname.append(_usr)
