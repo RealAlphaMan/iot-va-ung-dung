@@ -112,7 +112,6 @@ def realtimeData():
             def on_connect(client, userdata, flags, rc):
                 if rc==0:
                     pass
-
                 else:
                     print("Client is not connnected")
 
@@ -136,10 +135,6 @@ def realtimeData():
             yield f"data:{json_data}\n\n"
         
     return Response(generate_data(), mimetype='text/event-stream')
-
-@app.route('/test.html', methods = ['GET', 'POST'])
-def realtimeDataShow():
-    return render_template('test.html')
 
 @app.route('/temp-chart', methods = ['GET', 'POST'])
 def tempChart():
