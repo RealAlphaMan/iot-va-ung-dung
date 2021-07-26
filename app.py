@@ -1,9 +1,6 @@
-from flask import json, render_template, url_for, redirect, request, Flask, jsonify, send_file, send_from_directory, flash, Response
+from flask import json, render_template, url_for, redirect, request, Flask, jsonify, flash, Response
 import pymysql
-import textwrap
 import datetime
-import os
-import shutil
 import json
 import time
 import random
@@ -141,14 +138,12 @@ def tempChart():
 @app.route('/temp-data/', methods = ['GET', 'POST'])
 def tempData(userid = 1):
     cursor = conn.cursor()
-
     
     def get_data():
         while True:
             def on_connect(client, userdata, flags, rc):
                 if rc==0:
                     pass
-
                 else:
                     print("Client is not connnected")
 
@@ -164,8 +159,8 @@ def tempData(userid = 1):
             client.subscribe("/iot/user1/data/temp")
             client.loop_start()
             time.sleep(10)
-
             client.loop_stop()
+
             cursor.execute('update data set temp = %s where userid = %s',(temp_subcribe, userid))
             query = 'SELECT temp FROM data WHERE userid = %s'
             cursor.execute(query, userid)
@@ -252,27 +247,6 @@ def bodytempData(userid = 1):
             cursor.execute('update data set bodytemp = %s where userid = %s',(random.random()*100, userid))
 
             query = 'SELECT bodytemp FROM data WHERE userid = %s'
-            cursor.execute(query, userid)
-            result = cursor.fetchone()
-            json_data = json.dumps(
-                {'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'value': result[0]})
-            yield f"data:{json_data}\n\n"
-            time.sleep(1)
-
-    return Response(generate_random_data(), mimetype='text/event-stream')
-
-@app.route('/time-chart', methods = ['GET', 'POST'])
-def timeChart():
-    return render_template('time.html')
-
-@app.route('/time-data/', methods = ['GET', 'POST'])
-def timeData(userid = 1):
-    cursor = conn.cursor()
-    def generate_random_data():
-        while True:
-            cursor.execute('update data set time = %s where userid = %s',(random.random()*100, userid))
-
-            query = 'SELECT time FROM data WHERE userid = %s'
             cursor.execute(query, userid)
             result = cursor.fetchone()
             json_data = json.dumps(
