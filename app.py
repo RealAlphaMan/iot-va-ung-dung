@@ -13,6 +13,7 @@ list_uname = []
 checkLogin = False
 userid = None
 
+# MySQL config
 conn = pymysql.connect(host='localhost', port=3306, user='root', passwd='', db='iot')
  
 # MQTT config
@@ -32,19 +33,23 @@ def signIn():
     if request.method == 'POST':
         try:
             global _usr
+            # Get username and password from client
             _usr = request.form['usr']
             _pwd = request.form['pwd']
             cursor = conn.cursor()
             query="SELECT password FROM user WHERE username = %s"
             cursor.execute(query, _usr)
             result = cursor.fetchone()
+
+            #Check if password is true
             if result[0] == _pwd:
                 checkLogin = True
                 list_uname.append(_usr)
+                # Get userid
                 query = "SELECT userid FROM user WHERE username = %s"
                 cursor.execute(query, _usr)
                 result = cursor.fetchone()
-                userid = result[0]
+                userid = result[0] 
                 return redirect(url_for('show', userid = result[0]))
             else:
                 error = "Invalid user or password"  
@@ -61,27 +66,32 @@ def signUp():
     if request.method == 'POST':
         try:
             cursor = conn.cursor()
+            
+            #Get data from client
             _name = request.form['fullname']
             _usr = request.form['usr']
             _pwd = request.form['pwd']
             _con_pwd = request.form['con-pwd']
-            if _name == '' or _usr == '' or _pwd == '' or _con_pwd == '':
+            if _name == '' or _usr == '' or _pwd == '' or _con_pwd == '':  #If not fill all input
                 error = 'Please fill in all input'
             else:
                 if _pwd != _con_pwd:
                     error = 'Password and Re-enter password are not equal'
                 else: 
+                    #Insert in to db
                     query = 'INSERT INTO user (userid, name, username, password) VALUES (3, %s, %s, %s)'
                     cursor.execute(query, (_name, _usr, _pwd))
+                    #Create data for userid
                     query = 'INSERT INTO data (id, userid, temp, humi, spo2, nhiptim, bodytemp, time) VALUES (4, 3, 0, 0, 0, 0, 0, 0)'
                     cursor.execute(query)
                     checkLogin = True
                     list_uname.append(_usr)
+                    # Get userid
                     query = "SELECT userid FROM user WHERE username = %s"
                     cursor.execute(query, _usr)
                     result = cursor.fetchone()
                     userid = result[0]
-                    return redirect(url_for('show', userid = result[0]))
+                    return redirect(url_for('show', userid = userid))
         except Exception as e:
             return jsonify({'error': str(e)})
 
@@ -98,6 +108,7 @@ def show(userid):
 def realtimeData():
     def generate_data():
         while True:
+            #Get realtime data for temperature from broker HiveMQ
             def on_connect(client, userdata, flags, rc):
                 if rc==0:
                     pass
@@ -119,9 +130,8 @@ def realtimeData():
             time.sleep(10)
 
             client.loop_stop()
-            test = random.random()*100
-            test = str(test) + "\n"
             time.sleep(1)
+            # Send data realtime
             json_data = json.dumps({'temp': temp_subcribe, 'humi': random.uniform(64, 67), 'spo2': random.uniform(19, 21), 'nhiptim': random.uniform(57, 65),'bodytemp': random.uniform(36, 38)})
             yield f"data:{json_data}\n\n"
         
@@ -138,7 +148,7 @@ def tempChart():
 @app.route('/temp-data/', methods = ['GET', 'POST'])
 def tempData(userid = 1):
     cursor = conn.cursor()
-    
+    # Get real time data for temperature
     def get_data():
         while True:
             def on_connect(client, userdata, flags, rc):
@@ -181,6 +191,7 @@ def humiData(userid = 1):
     cursor = conn.cursor()
     def generate_random_data():
         while True:
+            # Get random data for humidity
             cursor.execute('update data set humi = %s where userid = %s',(random.random()*100, userid))
 
             query = 'SELECT humi FROM data WHERE userid = %s'
@@ -202,6 +213,7 @@ def spo2Data(userid = 1):
     cursor = conn.cursor()
     def generate_random_data():
         while True:
+            # Get random data for Spo2
             cursor.execute('update data set spo2 = %s where userid = %s',(random.random()*100, userid))
 
             query = 'SELECT spo2 FROM data WHERE userid = %s'
@@ -223,6 +235,7 @@ def nhiptimData(userid = 1):
     cursor = conn.cursor()
     def generate_random_data():
         while True:
+            # Get random data for Heart beat
             cursor.execute('update data set nhiptim = %s where userid = %s',(random.random()*100, userid))
 
             query = 'SELECT nhiptim FROM data WHERE userid = %s'
@@ -244,6 +257,7 @@ def bodytempData(userid = 1):
     cursor = conn.cursor()
     def generate_random_data():
         while True:
+            # Get random data for Body temperature
             cursor.execute('update data set bodytemp = %s where userid = %s',(random.random()*100, userid))
 
             query = 'SELECT bodytemp FROM data WHERE userid = %s'
