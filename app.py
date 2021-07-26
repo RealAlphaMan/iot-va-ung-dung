@@ -122,7 +122,7 @@ def realtimeData():
             test = random.random()*100
             test = str(test) + "\n"
             time.sleep(1)
-            json_data = json.dumps({'temp': temp_subcribe, 'humi': test, 'spo2': test, 'nhiptim': test,'bodytemp': test})
+            json_data = json.dumps({'temp': temp_subcribe, 'humi': random.uniform(64, 67), 'spo2': random.uniform(19, 21), 'nhiptim': random.uniform(57, 65),'bodytemp': random.uniform(36, 38)})
             yield f"data:{json_data}\n\n"
         
     return Response(generate_data(), mimetype='text/event-stream')
